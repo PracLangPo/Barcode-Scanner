@@ -1,234 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Offline Inventory Manager PWA</title>
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="styles.css">
-<style>
-body { font-family: Arial, sans-serif; padding: 10px; }
-#scanner { width: 100%; max-width: 500px; height: 300px; border: 1px solid black; margin-bottom: 10px; }
-table { border-collapse: collapse; width: 100%; max-width: 800px; margin-top: 10px; }
-th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-th { background-color: #f2f2f2; }
-input, select, button { padding: 8px; margin-bottom: 10px; width: 100%; max-width: 300px; }
-td.editable { cursor: pointer; background-color: #f9f9f9; }
-td.editable:hover { background-color: #e2f0ff; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Scanner PWA</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <!-- Firebase Config -->
+  <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+  </script>
 </head>
 <body>
-
-<div class="top-bar">
-  <h1>Inventory Scanner</h1>
-  <button class="toggle-dark" onclick="toggleDark()">🌙</button>
-</div>
-
-
-<!-- Scanner -->
-<div id="scanner-wrapper">
-  <div id="scanner"></div>
-  <div class="scanner-overlay">
-    <div class="scan-line"></div>
+  <!-- Top bar -->
+  <div class="top-bar">
+    <h1>Inventory Scanner</h1>
+    <button class="toggle-dark" onclick="toggleDark()">🌙</button>
   </div>
-</div>
 
-<button onclick="startScanner()">Start Scanner</button>
+  <!-- Scanner -->
+  <div id="scanner-wrapper">
+    <div id="scanner"></div>
+    <div class="scanner-overlay">
+      <div class="scan-line"></div>
+    </div>
+  </div>
 
-<h3>Search / Filter</h3>
-<input type="text" id="search-box" placeholder="Search barcode or notes..." oninput="updateTable()">
-<select id="category-filter" onchange="updateTable()">
-    <option value="">All Categories</option>
-    <option value="Electronics">Electronics</option>
-    <option value="Groceries">Groceries</option>
-    <option value="Stationery">Stationery</option>
+  <!-- Search & Category Filter -->
+  <input type="text" id="search-box" placeholder="Search items">
+  <select id="category-filter">
+    <option value="">All categories</option>
     <option value="Other">Other</option>
-</select>
+  </select>
 
-<h3>Scanned Items</h3>
-<table>
-    <thead>
-        <tr>
-            <th>Barcode</th>
-            <th>Quantity</th>
-            <th>Category</th>
-            <th>Notes</th>
-            <th>Timestamp</th>
-        </tr>
-    </thead>
-    <div id="scanned-items"></div>
+  <!-- Inventory Cards -->
+  <div id="scanned-items"></div>
 
-</table>
+  <!-- Floating Scan Button -->
+  <button class="fab" onclick="startScanner()">+</button>
 
-<input type="file" id="csv-import" accept=".csv">
-<button onclick="importCSV()">Import CSV</button>
-<button onclick="exportCSV()">Export CSV</button>
-<button onclick="clearAll()">Clear All</button>
+  <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
 
-<script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
-<script>
-let scannedItems = {};
-const searchBox = document.getElementById('search-box');
-const categoryFilter = document.getElementById('category-filter');
+  <script>
+    // ===== GLOBAL VARIABLES =====
+    let scannedItems = {};
 
-// Load saved items
-if(localStorage.getItem('scannedItems')){
-    scannedItems = JSON.parse(localStorage.getItem('scannedItems'));
-}
-
-// Save items
-function saveItems() { localStorage.setItem('scannedItems', JSON.stringify(scannedItems)); }
-
-// Add scanned item
-function addScannedItem(code) {
-    const now = new Date().toLocaleString();
-    if(scannedItems[code]){
-        scannedItems[code].quantity += 1;
-    } else {
-        scannedItems[code] = { quantity: 1, category:'Other', notes:'', timestamp: now };
+    // ===== DARK MODE =====
+    function toggleDark() {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('darkMode', document.body.classList.contains('dark'));
     }
-    saveItems(); updateTable();
-}
-
-// Update table
-function updateTable() {
-  const container = document.getElementById('scanned-items');
-  container.innerHTML = '';
-
-  const searchTerm = searchBox.value.trim().toLowerCase();
-  const filterCat = categoryFilter.value;
-
-  for (const code in scannedItems) {
-    const item = scannedItems[code];
-
-    // Apply filters
-    if (
-      (searchTerm &&
-        !code.toLowerCase().includes(searchTerm) &&
-        !item.notes.toLowerCase().includes(searchTerm)) ||
-      (filterCat && item.category !== filterCat)
-    ) {
-      continue;
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.body.classList.add('dark');
     }
 
-    // Create card
-    const card = document.createElement('div');
-    card.className = 'item-card';
+    // ===== FIREBASE ANONYMOUS LOGIN =====
+    auth.signInAnonymously()
+      .then(() => {
+        console.log('Signed in anonymously');
+        loadScans();
+      })
+      .catch(err => console.error(err));
 
-    card.innerHTML = `
-      <strong>${code}</strong>
-
-      <div class="item-meta">
-        Quantity: <span class="item-edit" onclick="editQuantity('${code}', this)">
-          ${item.quantity}
-        </span>
-      </div>
-
-      <div class="item-meta">
-        Category: <span class="item-edit" onclick="editCategory('${code}', this)">
-          ${item.category}
-        </span>
-      </div>
-
-      <div class="item-meta">
-        Notes: <span class="item-edit" onclick="editNotes('${code}', this)">
-          ${item.notes || 'Tap to add'}
-        </span>
-      </div>
-
-      <div class="item-meta">
-        ${item.timestamp}
-      </div>
-    `;
-
-    container.appendChild(card);
-  }
-}
-
-
-// Editable functions
-function editQuantity(code, cell){
-    const current = scannedItems[code].quantity;
-    const input = document.createElement('input'); input.type='number'; input.min=0; input.value=current; input.style.width='60px';
-    cell.innerHTML=''; cell.appendChild(input); input.focus();
-    input.onblur=()=>{ scannedItems[code].quantity=parseInt(input.value)||current; saveItems(); updateTable(); }
-    input.onkeydown=(e)=>{ if(e.key==='Enter') input.blur(); }
-}
-function editCategory(code, cell){
-    const input = document.createElement('select');
-    ['Electronics','Groceries','Stationery','Other'].forEach(c=>{ const opt=document.createElement('option'); opt.value=c; opt.text=c; if(c===scannedItems[code].category) opt.selected=true; input.appendChild(opt); });
-    cell.innerHTML=''; cell.appendChild(input); input.focus();
-    input.onblur=()=>{ scannedItems[code].category=input.value; saveItems(); updateTable(); }
-    input.onkeydown=(e)=>{ if(e.key==='Enter') input.blur(); }
-}
-function editNotes(code, cell){
-    const input=document.createElement('input'); input.type='text'; input.value=scannedItems[code].notes;
-    cell.innerHTML=''; cell.appendChild(input); input.focus();
-    input.onblur=()=>{ scannedItems[code].notes=input.value; saveItems(); updateTable(); }
-    input.onkeydown=(e)=>{ if(e.key==='Enter') input.blur(); }
-}
-
-// Clear all
-function clearAll(){ if(confirm('Are you sure you want to clear all items?')){ scannedItems={}; saveItems(); updateTable(); }}
-
-// CSV Export
-function exportCSV(){
-    let csv="data:text/csv;charset=utf-8,Barcode,Quantity,Category,Notes,Timestamp\n";
-    for(const code in scannedItems){
-        const item=scannedItems[code];
-        csv+=`${code},${item.quantity},${item.category},${item.notes},${item.timestamp}\n`;
+    // ===== FIRESTORE FUNCTIONS =====
+    function saveScanToFirebase(code) {
+      const item = scannedItems[code];
+      if (!auth.currentUser) return;
+      db.collection('scans').doc(code).set({
+        quantity: item.quantity,
+        category: item.category,
+        notes: item.notes || '',
+        timestamp: item.timestamp,
+        user: auth.currentUser.uid
+      }).then(() => console.log('Scan saved:', code))
+        .catch(err => console.error(err));
     }
-    const encodedUri=encodeURI(csv);
-    const link=document.createElement('a'); link.setAttribute('href',encodedUri); link.setAttribute('download','inventory.csv');
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-}
 
-// CSV Import
-function importCSV(){
-    const fileInput=document.getElementById('csv-import');
-    if(fileInput.files.length===0){ alert("Select a CSV file!"); return; }
-    const reader=new FileReader();
-    reader.onload=function(e){
-        const text=e.target.result;
-        const lines=text.trim().split('\n');
-        for(let i=1;i<lines.length;i++){
-            const cols=lines[i].split(',');
-            const code=cols[0].trim();
-            scannedItems[code]={quantity:parseInt(cols[1])||1, category:cols[2]?.trim()||'Other', notes:cols[3]?.trim()||'', timestamp:cols[4]?.trim()||new Date().toLocaleString()};
+    function loadScans() {
+      if (!auth.currentUser) return;
+      db.collection('scans')
+        .where('user', '==', auth.currentUser.uid)
+        .onSnapshot(snapshot => {
+          snapshot.forEach(doc => {
+            scannedItems[doc.id] = doc.data();
+          });
+          updateTable();
+        }, err => console.error(err));
+    }
+
+    // ===== SCANNER =====
+    function startScanner() {
+      Quagga.init({
+        inputStream: {
+          name: "Live",
+          type: "LiveStream",
+          target: document.querySelector('#scanner'),
+          constraints: {
+            facingMode: "environment"
+          }
+        },
+        decoder: {
+          readers: ["code_128_reader","ean_reader","ean_8_reader","code_39_reader","upc_reader"]
         }
-        saveItems(); updateTable(); alert("CSV imported successfully!"); fileInput.value='';
+      }, function(err) {
+        if (err) { console.error(err); return; }
+        Quagga.start();
+      });
+
+      Quagga.onDetected(data => {
+        const code = data.codeResult.code;
+        if (!scannedItems[code]) {
+          scannedItems[code] = {
+            quantity: 1,
+            category: 'Other',
+            notes: '',
+            timestamp: new Date().toLocaleString()
+          };
+          updateTable();
+          saveScanToFirebase(code);
+          localStorage.setItem('scannedItems', JSON.stringify(scannedItems));
+        }
+      });
     }
-    reader.readAsText(fileInput.files[0]);
-}
 
-// Initialize QuaggaJS (camera)
-function startScanner(){
-    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-        alert("Camera not supported on this device!");
-        return;
+    // ===== UPDATE TABLE =====
+    function updateTable() {
+      const container = document.getElementById('scanned-items');
+      container.innerHTML = '';
+
+      const searchInput = document.getElementById('search-box');
+      const categoryInput = document.getElementById('category-filter');
+
+      const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      const filterCat = categoryInput ? categoryInput.value : '';
+
+      for (const code in scannedItems) {
+        const item = scannedItems[code];
+        const notes = item.notes ? item.notes.toLowerCase() : '';
+
+        if (
+          (searchTerm &&
+           !code.toLowerCase().includes(searchTerm) &&
+           !notes.includes(searchTerm)) ||
+          (filterCat && item.category !== filterCat)
+        ) {
+          continue;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+          <strong>${code}</strong>
+          <div class="item-meta">
+            Quantity: <span class="item-edit" onclick="editQuantity('${code}', this)">${item.quantity}</span>
+          </div>
+          <div class="item-meta">
+            Category: <span class="item-edit" onclick="editCategory('${code}', this)">${item.category}</span>
+          </div>
+          <div class="item-meta">
+            Notes: <span class="item-edit" onclick="editNotes('${code}', this)">${item.notes || 'Tap to add'}</span>
+          </div>
+          <div class="item-meta">${item.timestamp}</div>
+        `;
+        container.appendChild(card);
+      }
     }
-    Quagga.init({
-        inputStream:{name:"Live", type:"LiveStream", target:document.querySelector('#scanner'), constraints:{facingMode:"environment"}},
-        decoder:{readers:["code_128_reader","ean_reader","ean_8_reader","upc_reader","upc_e_reader"]}
-    }, function(err){ if(err){ console.error(err); return; } Quagga.start(); });
 
-    Quagga.onDetected(function(result){ addScannedItem(result.codeResult.code); });
-}
+    // ===== EDIT FUNCTIONS =====
+    function editQuantity(code, el) {
+      const newQty = prompt("Enter new quantity:", scannedItems[code].quantity);
+      if (newQty !== null) {
+        scannedItems[code].quantity = parseInt(newQty);
+        updateTable();
+        saveScanToFirebase(code);
+        localStorage.setItem('scannedItems', JSON.stringify(scannedItems));
+      }
+    }
 
-// Register Service Worker
-if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').then(()=>console.log('SW registered')).catch(err=>console.error(err));
-}
+    function editCategory(code, el) {
+      const newCat = prompt("Enter new category:", scannedItems[code].category);
+      if (newCat !== null) {
+        scannedItems[code].category = newCat;
+        updateTable();
+        saveScanToFirebase(code);
+        localStorage.setItem('scannedItems', JSON.stringify(scannedItems));
+      }
+    }
 
-// Wait for DOM
-document.addEventListener('DOMContentLoaded', ()=>{
-    updateTable();
-});
-</script>
-<button class="fab" onclick="startScanner()">+</button>
+    function editNotes(code, el) {
+      const newNotes = prompt("Enter notes:", scannedItems[code].notes);
+      if (newNotes !== null) {
+        scannedItems[code].notes = newNotes;
+        updateTable();
+        saveScanToFirebase(code);
+        localStorage.setItem('scannedItems', JSON.stringify(scannedItems));
+      }
+    }
+
+    // ===== LOAD LOCALSTORAGE FALLBACK =====
+    window.addEventListener('load', () => {
+      const stored = localStorage.getItem('scannedItems');
+      if (stored) scannedItems = JSON.parse(stored);
+      updateTable();
+    });
+  </script>
 </body>
 </html>
-
-
-
-
