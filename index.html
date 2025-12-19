@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inventory Scanner PWA - Debug</title>
+  <title>Inventory Scanner PWA - Reliable</title>
   <link rel="stylesheet" href="styles.css">
 
   <!-- Firebase SDK -->
@@ -29,7 +29,7 @@
 </head>
 <body>
   <div class="top-bar">
-    <h1>Inventory Scanner (Debug)</h1>
+    <h1>Inventory Scanner</h1>
     <button onclick="toggleDark()">🌙</button>
     <button onclick="clearAllScans()" class="clear-btn">Clear All</button>
   </div>
@@ -46,7 +46,6 @@
   </select>
 
   <div id="scanned-items"></div>
-
   <button class="fab" onclick="startScanner()">+</button>
 
   <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
@@ -61,12 +60,15 @@
     }
     if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark');
 
-    // Firebase Anonymous Login with Debug
+    // Firebase Anonymous Login
     auth.signInAnonymously()
-      .then(() => console.log('Signed in anonymously, UID:', auth.currentUser.uid))
+      .then(() => {
+        console.log('Signed in anonymously, UID:', auth.currentUser.uid);
+        loadScans();
+      })
       .catch(err => console.error('Anonymous sign-in failed:', err));
 
-    // Firestore save function with debug
+    // Save scan to Firestore with debug
     function saveScanToFirebase(code) {
       const item = scannedItems[code];
       if (!auth.currentUser) {
@@ -85,7 +87,7 @@
       .catch(err => console.error("Error saving scan:", err));
     }
 
-    // Load scans with real-time updates
+    // Load scans from Firestore with real-time updates
     function loadScans() {
       if (!auth.currentUser) return;
       db.collection('scans')
@@ -96,18 +98,38 @@
         }, err => console.error("Error loading scans:", err));
     }
 
-    // Scanner
+    // Scanner settings
+    let lastScanTime = 0;
+    const scanCooldown = 1000; // 1 second
+    const minGoodMatches = 3;  // confidence check
+    const requireConfirmation = true;
+
     function startScanner() {
       Quagga.init({
         inputStream: { name: "Live", type: "LiveStream", target: document.querySelector('#scanner'), constraints: { facingMode: "environment" } },
-        decoder: { readers: ["code_128_reader","ean_reader","ean_8_reader","code_39_reader","upc_reader"] }
+        decoder: { readers: ["ean_reader","upc_reader"] }
       }, err => {
         if (err) { console.error(err); return; }
         Quagga.start();
       });
 
       Quagga.onDetected(data => {
+        const now = Date.now();
+        if (now - lastScanTime < scanCooldown) return; // debounce
+        lastScanTime = now;
+
         const code = data.codeResult.code;
+        const goodMatches = data.codeResult.decodedCodes.filter(c => c.error !== undefined && c.error < 0.2);
+        if (goodMatches.length < minGoodMatches) {
+          console.log("Ignored low confidence scan:", code);
+          return;
+        }
+
+        if (requireConfirmation) {
+          const confirmed = confirm("Add barcode: " + code + "?");
+          if (!confirmed) return;
+        }
+
         if (!scannedItems[code]) {
           scannedItems[code] = {
             quantity: 1,
@@ -118,6 +140,7 @@
           updateTable();
           saveScanToFirebase(code);
           localStorage.setItem('scannedItems', JSON.stringify(scannedItems));
+          console.log("Barcode added:", code);
         }
       });
     }
@@ -141,9 +164,9 @@
         card.className = 'item-card';
         card.innerHTML = `
           <strong>${code}</strong>
-          <div class="item-meta">Quantity: <span class="item-edit" onclick="editQuantity('${code}', this)">${item.quantity}</span></div>
-          <div class="item-meta">Category: <span class="item-edit" onclick="editCategory('${code}', this)">${item.category}</span></div>
-          <div class="item-meta">Notes: <span class="item-edit" onclick="editNotes('${code}', this)">${item.notes || 'Tap to add'}</span></div>
+          <div class="item-meta">Quantity: <span class="item-edit" onclick="editQuantity('${code}')">${item.quantity}</span></div>
+          <div class="item-meta">Category: <span class="item-edit" onclick="editCategory('${code}')">${item.category}</span></div>
+          <div class="item-meta">Notes: <span class="item-edit" onclick="editNotes('${code}')">${item.notes || 'Tap to add'}</span></div>
           <div class="item-meta">${item.timestamp}</div>
         `;
         container.appendChild(card);
@@ -179,7 +202,7 @@
       }
     }
 
-    // Clear all items
+    // Clear all scans
     function clearAllScans() {
       if (!confirm("Are you sure you want to clear all items? This cannot be undone.")) return;
 
@@ -206,4 +229,3 @@
   </script>
 </body>
 </html>
-
