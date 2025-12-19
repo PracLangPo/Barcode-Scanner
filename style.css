@@ -1,0 +1,130 @@
+/* ===== Reset & Base ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background: #f4f6f8;
+  color: #222;
+}
+
+/* ===== Headings ===== */
+h1 {
+  font-size: 1.4rem;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+/* ===== Scanner ===== */
+#scanner {
+  width: 100%;
+  max-width: 420px;
+  height: 260px;
+  margin: 0 auto 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Buttons ===== */
+button {
+  width: 100%;
+  max-width: 420px;
+  padding: 14px;
+  margin: 8px auto;
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  background: #4caf50;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+
+button:hover {
+  background: #43a047;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* ===== Inputs & Selects ===== */
+input,
+select {
+  width: 100%;
+  max-width: 420px;
+  padding: 12px;
+  margin: 6px auto;
+  display: block;
+  font-size: 0.95rem;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+/* ===== Section Titles ===== */
+h3 {
+  margin-top: 20px;
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+}
+
+/* ===== Table Container ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== Table Head ===== */
+th {
+  background: #eeeeee;
+  font-size: 0.85rem;
+  padding: 10px;
+}
+
+/* ===== Table Cells ===== */
+td {
+  padding: 10px;
+  font-size: 0.85rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* ===== Editable Cells ===== */
+td.editable {
+  background: #f9fbff;
+  cursor: pointer;
+}
+
+td.editable:hover {
+  background: #e8f0fe;
+}
+
+/* ===== File Input ===== */
+input[type="file"] {
+  padding: 8px;
+  background: #fff;
+  border: 1px dashed #bbb;
+}
+
+/* ===== Small Screens ===== */
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.25rem;
+  }
+
+  th,
+  td {
+    font-size: 0.8rem;
+  }
+}
