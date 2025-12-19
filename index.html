@@ -7,12 +7,11 @@
 <link rel="manifest" href="manifest.json">
 <style>
 body { font-family: Arial, sans-serif; padding: 10px; }
-#scanner { width: 100%; max-width: 500px; height: 300px; border: 1px solid black; margin-bottom: 20px; }
+#scanner { width: 100%; max-width: 500px; height: 300px; border: 1px solid black; margin-bottom: 10px; }
 table { border-collapse: collapse; width: 100%; max-width: 800px; margin-top: 10px; }
 th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
 th { background-color: #f2f2f2; }
-input, select { padding: 8px; margin-bottom: 10px; width: 100%; max-width: 300px; }
-button { margin-top: 10px; padding: 10px; margin-right: 5px; }
+input, select, button { padding: 8px; margin-bottom: 10px; width: 100%; max-width: 300px; }
 td.editable { cursor: pointer; background-color: #f9f9f9; }
 td.editable:hover { background-color: #e2f0ff; }
 </style>
@@ -20,7 +19,10 @@ td.editable:hover { background-color: #e2f0ff; }
 <body>
 
 <h1>Offline Inventory Manager PWA</h1>
+
+<!-- Scanner -->
 <div id="scanner"></div>
+<button onclick="startScanner()">Start Scanner</button>
 
 <h3>Search / Filter</h3>
 <input type="text" id="search-box" placeholder="Search barcode or notes..." oninput="updateTable()">
@@ -172,8 +174,10 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').then(()=>console.log('SW registered')).catch(err=>console.error(err));
 }
 
-startScanner();
-updateTable();
+// Wait for DOM
+document.addEventListener('DOMContentLoaded', ()=>{
+    updateTable();
+});
 </script>
 </body>
 </html>
