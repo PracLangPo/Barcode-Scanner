@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="manifest" href="manifest.json">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offline Inventory Manager with CSV Import</title>
+<script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
+<style>
+body { font-family: Arial, sans-serif; padding: 10px; }
+#scanner { width: 100%; max-width: 500px; height: 300px; border: 1px solid black; margin-bottom: 20px; }
+table { border-collapse: collapse; width: 100%; max-width: 800px; margin-top: 10px; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+th { background-color: #f2f2f2; }
+input, select { padding: 8px; margin-bottom: 10px; width: 100%; max-width: 300px; }
+button { margin-top: 10px; padding: 10px; margin-right: 5px; }
+td.editable { cursor: pointer; background-color: #f9f9f9; }
+td.editable:hover { background-color: #e2f0ff; }
+</style>
+</head>
+<body>
+
+<h1>Offline Inventory Manager</h1>
+<div id="scanner"></div>
+
+<h3>Search / Filter</h3>
+<input type="text" id="search-box" placeholder="Search barcode or notes..." oninput="updateTable()">
+<select id="category-filter" onchange="updateTable()">
+    <option value="">All Categories</option>
+    <option value="Electronics">Electronics</option>
+    <option value="Groceries">Groceries</option>
+    <option value="Stationery">Stationery</option>
+    <option value="Other">Other</option>
+</select>
+
+<h3>Scanned Items</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Barcode</th>
+            <th>Quantity</th>
+            <th>Category</th>
+            <th>Notes</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody id="scanned-items"></tbody>
+</table>
+
+<input type="file" id="csv-import" accept=".csv">
+<button onclick="importCSV()">Import CSV</button>
+<button onclick="exportCSV()">Export to CSV</button>
+<button onclick="clearAll()">Clear All</button>
+
+<script>
+let scannedItems = {};
+const searchBox = document.getElementById('search-box');
+const categoryFilter = document.getElementById('category-filter');
+
+// Load saved items
+if(localStorage.getItem('scannedItems')){
+    scannedItems = JSON.parse(localStorage.getItem('scannedItems'));
+}
+
+function saveItems() {
+    localStorage.setItem('scannedItems', JSON.stringify(scannedItems));
+}
+
+function addScannedItem(code) {
+    const now = new Date().toLocaleString();
+    if(scannedItems[code]){
+        scannedItems[code].quantity += 1;
+    } else {
+        scannedItems[code] = {
+            quantity: 1,
+            category: 'Other',
+            notes: '',
+            timestamp: now
+        };
+    }
+    saveItems();
+    updateTable();
+}
+
+function updateTable() {
+    const tbody = document.getElementById('scanned-items');
+    tbody.innerHTML = '';
+    const searchTerm = searchBox.value.trim().toLowerCase();
+    const filterCat = categoryFilter.value;
+    for(const code in scannedItems){
+        const item = scannedItems[code];
+        if((!searchTerm || code.toLowerCase().includes(searchTerm) || item.notes.toLowerCase().includes(searchTerm)) &&
+           (!filterCat || item.category === filterCat)){
+
+            const row = document.createElement('tr');
+
+            const codeCell = document.createElement('td'); codeCell.textContent = code;
+            const qtyCell = document.createElement('td'); qtyCell.textContent = item.quantity; qtyCell.classList.add('editable'); qtyCell.onclick = () => editQuantity(code, qtyCell);
+            const catCell = document.createElement('td'); catCell.textContent = item.category; catCell.classList.add('editable'); catCell.onclick = () => editCategory(code, catCell);
+            const notesCell = document.createElement('td'); notesCell.textContent = item.notes; notesCell.classList.add('editable'); notesCell.onclick = () => editNotes(code, notesCell);
+            const tsCell = document.createElement('td'); tsCell.textContent = item.timestamp;
+
+            row.appendChild(codeCell); row.appendChild(qtyCell); row.appendChild(catCell); row.appendChild(notesCell); row.appendChild(tsCell);
+            tbody.appendChild(row);
+        }
+    }
+}
+
+// Editable functions
+function editQuantity(code, cell){
+    const current = scannedItems[code].quantity;
+    const input = document.createElement('input'); input.type='number'; input.min=0; input.value=current; input.style.width='60px';
+    cell.innerHTML=''; cell.appendChild(input); input.focus();
+    input.onblur=()=>{ scannedItems[code].quantity=parseInt(input.value)||current; saveItems(); updateTable(); }
+    input.onkeydown=(e)=>{ if(e.key==='Enter') input.blur(); }
+}
+
+function editCategory(code, cell){
+    const input = document.createElement('select');
+    ['Electronics','Groceries','Stationery','Other'].forEach(c=>{ const opt=document.createElement('option'); opt.value=c; opt.text=c; if(c===scannedItems[code].category) opt.selected=true; input.appendChild(opt); });
+    cell.innerHTML=''; cell.appendChild(input); input.focus();
+    input.onblur=()=>{ scannedItems[code].category=input.value; saveItems(); updateTable(); }
+    input.onkeydown=(e)=>{ if(e.key==='Enter') input.blur(); }
+}
+
+function editNotes(code, cell){
+    const input = document.createElement('input'); input.type='text'; input.value=scannedItems[code].notes;
+    cell.innerHTML=''; cell.appendChild(input); input.focus();
+    input.onblur=()=>{ scannedItems[code].notes=input.value; saveItems(); updateTable(); }
+    input.onkeydown=(e)=>{ if(e.key==='Enter') input.blur(); }
+}
+
+// Clear all
+function clearAll(){ if(confirm('Are you sure you want to clear all items?')){ scannedItems={}; saveItems(); updateTable(); }}
+
+// CSV Export
+function exportCSV(){
+    let csvContent="data:text/csv;charset=utf-8,Barcode,Quantity,Category,Notes,Timestamp\n";
+    for(const code in scannedItems){
+        const item=scannedItems[code];
+        csvContent+=`${code},${item.quantity},${item.category},${item.notes},${item.timestamp}\n`;
+    }
+    const encodedUri=encodeURI(csvContent);
+    const link=document.createElement('a'); link.setAttribute('href',encodedUri); link.setAttribute('download','inventory.csv');
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+// CSV Import
+function importCSV(){
+    const fileInput = document.getElementById('csv-import');
+    if(fileInput.files.length===0){ alert("Select a CSV file!"); return; }
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e){
+        const text = e.target.result;
+        const lines = text.trim().split('\n');
+        const headers = lines[0].split(',').map(h=>h.trim());
+        for(let i=1; i<lines.length; i++){
+            const cols = lines[i].split(',');
+            const code=cols[0].trim();
+            scannedItems[code] = {
+                quantity: parseInt(cols[1])||1,
+                category: cols[2]?.trim()||'Other',
+                notes: cols[3]?.trim()||'',
+                timestamp: cols[4]?.trim() || new Date().toLocaleString()
+            };
+        }
+        saveItems(); updateTable(); alert("CSV imported successfully!");
+        fileInput.value = ''; // reset
+    }
+    reader.readAsText(file);
+}
+
+// Initialize QuaggaJS
+Quagga.init({
+    inputStream: { name:"Live", type:"LiveStream", target: document.querySelector('#scanner'), constraints:{facingMode:"environment"} },
+    decoder: { readers:["code_128_reader","ean_reader","ean_8_reader","upc_reader","upc_e_reader"] }
+}, function(err){ if(err){ console.error(err); return; } Quagga.start(); });
+
+Quagga.onDetected(function(result){ addScannedItem(result.codeResult.code); });
+
+updateTable();
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+    .then(() => console.log('Service Worker Registered'))
+    .catch(err => console.error('SW registration failed:', err));
+}
+</script>
+</body>
+</html>
