@@ -19,10 +19,20 @@ td.editable:hover { background-color: #e2f0ff; }
 </head>
 <body>
 
-<h1>Offline Inventory Manager PWA</h1>
+<div class="top-bar">
+  <h1>Inventory Scanner</h1>
+  <button class="toggle-dark" onclick="toggleDark()">🌙</button>
+</div>
+
 
 <!-- Scanner -->
-<div id="scanner"></div>
+<div id="scanner-wrapper">
+  <div id="scanner"></div>
+  <div class="scanner-overlay">
+    <div class="scan-line"></div>
+  </div>
+</div>
+
 <button onclick="startScanner()">Start Scanner</button>
 
 <h3>Search / Filter</h3>
@@ -46,7 +56,8 @@ td.editable:hover { background-color: #e2f0ff; }
             <th>Timestamp</th>
         </tr>
     </thead>
-    <tbody id="scanned-items"></tbody>
+    <div id="scanned-items"></div>
+
 </table>
 
 <input type="file" id="csv-import" accept=".csv">
@@ -81,25 +92,59 @@ function addScannedItem(code) {
 
 // Update table
 function updateTable() {
-    const tbody = document.getElementById('scanned-items');
-    tbody.innerHTML = '';
-    const searchTerm = searchBox.value.trim().toLowerCase();
-    const filterCat = categoryFilter.value;
-    for(const code in scannedItems){
-        const item = scannedItems[code];
-        if((!searchTerm || code.toLowerCase().includes(searchTerm) || item.notes.toLowerCase().includes(searchTerm)) &&
-           (!filterCat || item.category===filterCat)){
-            const row=document.createElement('tr');
-            const codeCell=document.createElement('td'); codeCell.textContent=code;
-            const qtyCell=document.createElement('td'); qtyCell.textContent=item.quantity; qtyCell.classList.add('editable'); qtyCell.onclick=()=>editQuantity(code, qtyCell);
-            const catCell=document.createElement('td'); catCell.textContent=item.category; catCell.classList.add('editable'); catCell.onclick=()=>editCategory(code, catCell);
-            const notesCell=document.createElement('td'); notesCell.textContent=item.notes; notesCell.classList.add('editable'); notesCell.onclick=()=>editNotes(code, notesCell);
-            const tsCell=document.createElement('td'); tsCell.textContent=item.timestamp;
-            row.appendChild(codeCell); row.appendChild(qtyCell); row.appendChild(catCell); row.appendChild(notesCell); row.appendChild(tsCell);
-            tbody.appendChild(row);
-        }
+  const container = document.getElementById('scanned-items');
+  container.innerHTML = '';
+
+  const searchTerm = searchBox.value.trim().toLowerCase();
+  const filterCat = categoryFilter.value;
+
+  for (const code in scannedItems) {
+    const item = scannedItems[code];
+
+    // Apply filters
+    if (
+      (searchTerm &&
+        !code.toLowerCase().includes(searchTerm) &&
+        !item.notes.toLowerCase().includes(searchTerm)) ||
+      (filterCat && item.category !== filterCat)
+    ) {
+      continue;
     }
+
+    // Create card
+    const card = document.createElement('div');
+    card.className = 'item-card';
+
+    card.innerHTML = `
+      <strong>${code}</strong>
+
+      <div class="item-meta">
+        Quantity: <span class="item-edit" onclick="editQuantity('${code}', this)">
+          ${item.quantity}
+        </span>
+      </div>
+
+      <div class="item-meta">
+        Category: <span class="item-edit" onclick="editCategory('${code}', this)">
+          ${item.category}
+        </span>
+      </div>
+
+      <div class="item-meta">
+        Notes: <span class="item-edit" onclick="editNotes('${code}', this)">
+          ${item.notes || 'Tap to add'}
+        </span>
+      </div>
+
+      <div class="item-meta">
+        ${item.timestamp}
+      </div>
+    `;
+
+    container.appendChild(card);
+  }
 }
+
 
 // Editable functions
 function editQuantity(code, cell){
@@ -180,6 +225,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     updateTable();
 });
 </script>
+<button class="fab" onclick="startScanner()">+</button>
 </body>
 </html>
+
 
