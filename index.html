@@ -79,19 +79,7 @@
       .catch(err => console.error(err));
 
     // ===== FIRESTORE FUNCTIONS =====
-    function saveScanToFirebase(code) {
-      const item = scannedItems[code];
-      if (!auth.currentUser) return;
-      db.collection('scans').doc(code).set({
-        quantity: item.quantity,
-        category: item.category,
-        notes: item.notes || '',
-        timestamp: item.timestamp,
-        user: auth.currentUser.uid
-      }).then(() => console.log('Scan saved:', code))
-        .catch(err => console.error(err));
-    }
-
+    
     function loadScans() {
       if (!auth.currentUser) return;
       db.collection('scans')
@@ -137,6 +125,18 @@
           localStorage.setItem('scannedItems', JSON.stringify(scannedItems));
         }
       });
+    }
+    function saveScanToFirebase(code) {
+      const item = scannedItems[code];
+      if (!auth.currentUser) return;
+      db.collection('scans').doc(code).set({
+        quantity: item.quantity,
+        category: item.category,
+        notes: item.notes || '',
+        timestamp: item.timestamp,
+        user: auth.currentUser.uid
+      }).then(() => console.log('Scan saved:', code))
+        .catch(err => console.error(err));
     }
 
     // ===== UPDATE TABLE =====
@@ -222,4 +222,5 @@
   </script>
 </body>
 </html>
+
 
